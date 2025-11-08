@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ################################################################################
 #                                                                              #
 #                           📁 main.py                                         #
@@ -12,13 +11,9 @@ from PyQt5.QtWidgets import QApplication
 from network import ECUNetwork
 from ecus.engine_ecu import EngineECU
 from ecus.fuel_ecu import FuelECU
+from ecus.brake_ecu import BrakeECU
+from ecus.transmission_ecu import TransmissionECU
 from GUI import ECUNetworkMonitor
-
-
-# Import additional ECUs if you create transmission_ecu.py and brake_ecu.py
-# from transmission_ecu import TransmissionECU
-# from brake_ecu import BrakeECU
-
 
 def main():
     update_queue = Queue()
@@ -27,22 +22,20 @@ def main():
     # Instantiate ECUs
     engine = EngineECU("EngineECU", update_queue, main_tick=0.1)
     fuel = FuelECU("FuelECU", update_queue, cylinders=8, main_tick=0.1)
-    
-    # Uncomment when you create these files:
-    # transmission = TransmissionECU("TransmissionECU", update_queue, gear_count=6, main_tick=0.1)
-    # brake = BrakeECU("BrakeECU", update_queue, main_tick=0.1)
+    transmission = TransmissionECU("TransmissionECU", update_queue, gear_count=6, main_tick=0.1)
+    brake = BrakeECU("BrakeECU", update_queue, main_tick=0.1)
 
     # Register on network
     network.register(engine)
     network.register(fuel)
-    # network.register(transmission)
-    # network.register(brake)
+    network.register(transmission)
+    network.register(brake)
 
     ecus = {
         "EngineECU": engine, 
         "FuelECU": fuel,
-        # "TransmissionECU": transmission,
-        # "BrakeECU": brake
+        "TransmissionECU": transmission,
+        "BrakeECU": brake
     }
 
     app = QApplication(sys.argv)
@@ -54,38 +47,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-=======
-# main.py
-import time
-from network import ECUNetwork
-from ecus.engine_ecu import EngineECU
-from ecus.fuel_ecu import FuelECU
-
-def main():
-    network = ECUNetwork()
-
-    engine = EngineECU(network)
-    fuel = FuelECU(network)
-
-    # Register ECUs with the network
-    network.register(engine)
-    network.register(fuel)
-
-    # Start threads
-    engine.start()
-    fuel.start()
-
-    try:
-        time.sleep(15)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        engine.stop()
-        fuel.stop()
-        engine.join()
-        fuel.join()
-        print("\n[System] Simulation ended.")
-
-if __name__ == "__main__":
-    main()
->>>>>>> 529f573ddde8dfe23913a5af0207dc8513e3241a

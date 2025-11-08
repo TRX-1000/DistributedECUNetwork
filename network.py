@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ################################################################################
 #                                                                              #
 #                           📁 network.py                                      #
@@ -31,16 +30,11 @@ class NetworkStats:
                 'size': size
             })
 
-=======
-# network.py
-import threading
->>>>>>> 529f573ddde8dfe23913a5af0207dc8513e3241a
 
 class ECUNetwork:
     def __init__(self):
         self.ecus = {}
         self.lock = threading.Lock()
-<<<<<<< HEAD
         self.stats = NetworkStats()
         self.latency_ms = 2  # Simulated network latency
 
@@ -64,18 +58,3 @@ class ECUNetwork:
                 if sender in self.ecus and hasattr(self.ecus[sender], "update_queue"):
                     self.ecus[sender].update_queue.put(("log", sender,
                                                        f"[WARN] Network: target '{receiver}' not found"))
-=======
-
-    def register(self, ecu):
-        """Register ECU with the network"""
-        with self.lock:
-            self.ecus[ecu.name] = ecu
-
-    def send(self, sender, receiver, data):
-        """Deliver message from sender to receiver"""
-        with self.lock:
-            if receiver in self.ecus:
-                self.ecus[receiver].receive_message(sender, data)
-            else:
-                print(f"[Network] ECU '{receiver}' not found!")
->>>>>>> 529f573ddde8dfe23913a5af0207dc8513e3241a
