@@ -1,10 +1,3 @@
-################################################################################
-#                                                                              #
-#                          📁 fuel_ecu.py                                      #
-#                        Fuel Control Unit Module                              #
-#                                                                              #
-################################################################################
-
 import random
 from ecu_base import BaseECU, MEDIUM, SLOW, now_s, clamp
 

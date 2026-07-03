@@ -1,10 +1,3 @@
-################################################################################
-#                                                                              #
-#                         📁 brake_ecu.py                                      #
-#                       Brake Control Unit Module                              #
-#                                                                              #
-################################################################################
-
 import random
 from ecu_base import BaseECU, FAST, MEDIUM, SLOW, now_s, clamp
 
@@ -87,24 +80,23 @@ class BrakeECU(BaseECU):
         # MEDIUM: Brake temperatures
         if t - self.last_update["BrakeTemps"] >= MEDIUM:
             # Heat generation from braking (front biased 60/40)
-            heat_gen = self.brake_pressure * 0.8
-            
+            heat_gen = (self.brake_force / 100.0) * 8.0            
             # Front brakes
-            self.brake_temp_fl += heat_gen * 0.6 - (self.brake_temp_fl - 70.0) * 0.05
-            self.brake_temp_fl += self.random.uniform(-3.0, 3.0)
+            self.brake_temp_fl += heat_gen * 0.6 - (self.brake_temp_fl - 70.0) * 0.15
+            self.brake_temp_fl += self.random.uniform(-1.0, 1.0)
             self.brake_temp_fl = round(clamp(self.brake_temp_fl, 60.0, 600.0), 1)
-            
-            self.brake_temp_fr += heat_gen * 0.6 - (self.brake_temp_fr - 70.0) * 0.05
-            self.brake_temp_fr += self.random.uniform(-3.0, 3.0)
+
+            self.brake_temp_fr += heat_gen * 0.6 - (self.brake_temp_fr - 70.0) * 0.15
+            self.brake_temp_fr += self.random.uniform(-1.0, 1.0)
             self.brake_temp_fr = round(clamp(self.brake_temp_fr, 60.0, 600.0), 1)
-            
+
             # Rear brakes
-            self.brake_temp_rl += heat_gen * 0.4 - (self.brake_temp_rl - 70.0) * 0.05
-            self.brake_temp_rl += self.random.uniform(-2.0, 2.0)
+            self.brake_temp_rl += heat_gen * 0.4 - (self.brake_temp_rl - 70.0) * 0.15
+            self.brake_temp_rl += self.random.uniform(-0.5, 0.5)
             self.brake_temp_rl = round(clamp(self.brake_temp_rl, 60.0, 500.0), 1)
-            
-            self.brake_temp_rr += heat_gen * 0.4 - (self.brake_temp_rr - 70.0) * 0.05
-            self.brake_temp_rr += self.random.uniform(-2.0, 2.0)
+
+            self.brake_temp_rr += heat_gen * 0.4 - (self.brake_temp_rr - 70.0) * 0.15
+            self.brake_temp_rr += self.random.uniform(-0.5, 0.5)
             self.brake_temp_rr = round(clamp(self.brake_temp_rr, 60.0, 500.0), 1)
             
             self.last_update["BrakeTemps"] = t
@@ -150,7 +142,7 @@ class BrakeECU(BaseECU):
         with self.lock:
             self.data = data
 
-        self.update_queue.put(("update", self.name, (data.copy(), [])))
+        self.update_queue.put(("update", self.name, (data.copy(), self.dtc_codes.copy())))
 
         # Warnings
         if max(self.brake_temp_fl, self.brake_temp_fr) > 420.0:

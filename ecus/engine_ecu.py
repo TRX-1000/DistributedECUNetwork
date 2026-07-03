@@ -1,10 +1,3 @@
-################################################################################
-#                                                                              #
-#                         📁 engine_ecu.py                                     #
-#                       Engine Control Unit Module                             #
-#                                                                              #
-################################################################################
-
 import random
 import math
 from ecu_base import BaseECU, FAST, MEDIUM, SLOW, now_s, clamp
@@ -24,10 +17,19 @@ class EngineECU(BaseECU):
         "MAFRate": 250.0
     }
 
+    DTC_PARAMETER_MAP = {
+        "P0171": ["O2", "AFRatio"],
+        "P0300": ["RPM", "Load"],
+        "P0420": ["O2", "Temperature"],
+        "B1342": ["Temperature"],
+        "P0100": ["MAFRate"],
+        "P1450": ["IntakePressure", "BoostPressure"],
+    }
+
     def __init__(self, name, update_queue, main_tick=0.1):
         super().__init__(name, update_queue, main_tick)
         self.random = random.Random()
-        
+
         # Core parameters
         self.rpm = 900
         self.throttle = 0.0
@@ -42,25 +44,25 @@ class EngineECU(BaseECU):
         self.cam = 0.0
         self.maf_rate = 15.0
         self.load = 0.0
-        
+
         self.current_gear = 1
         self.target_gear = 1
         self.gear_request_rpm = 0
-        
+
         self.throttle_target = 0.0
         self.rpm_target = self.rpm
-        
+
         self.last_update = {}
         t = now_s()
         keys = ["RPM", "ThrottlePosition", "Temperature", "OilLevel", "OilPressure",
-                "IntakePressure", "BoostPressure", "O2", "BatteryVoltage", 
+                "IntakePressure", "BoostPressure", "O2", "BatteryVoltage",
                 "CrankshaftPos", "CamshaftPos", "MAFRate", "Load"]
         for k in keys:
             self.last_update[k] = t - 10.0
 
     def generate_data(self):
         t = now_s()
-        
+
         # Update throttle target periodically
         if t - self.last_update.get("ThrottleTarget", 0) > 1.5:
             if self.random.random() < 0.25:
@@ -75,20 +77,20 @@ class EngineECU(BaseECU):
         if t - self.last_update["ThrottlePosition"] >= FAST:
             self.throttle += (self.throttle_target - self.throttle) * 0.20 + self.random.uniform(-0.4, 0.4)
             self.throttle = clamp(self.throttle, 0.0, 100.0)
-            
+
             self.load = (self.throttle / 100.0) * (self.rpm / 9000.0) * 100.0
-            
+
             base_idle = 900
             gear_ratio = 1.0 + (self.current_gear - 1) * 0.7
             self.rpm_target = int(base_idle + self.throttle * (80.0 / gear_ratio))
-            
+
             self.rpm += (self.rpm_target - self.rpm) * 0.15 + self.random.uniform(-100, 100)
             self.rpm = int(clamp(self.rpm, 600, 9500))
-            
+
             deg_per_sec = (self.rpm / 60.0) * 360.0
             self.crank = (self.crank + deg_per_sec * FAST) % 360.0
             self.cam = (self.cam + (deg_per_sec * FAST) / 2.0 + self.random.uniform(-3.0, 3.0)) % 360.0
-            
+
             self.last_update["ThrottlePosition"] = t
             self.last_update["RPM"] = t
             self.last_update["CrankshaftPos"] = t
@@ -100,15 +102,15 @@ class EngineECU(BaseECU):
             self.intake_pressure += (1.0 + (self.throttle / 100.0) * 0.9 - self.intake_pressure) * 0.30
             self.intake_pressure += self.random.uniform(-0.04, 0.04)
             self.intake_pressure = round(clamp(self.intake_pressure, 0.5, 2.8), 3)
-            
+
             self.boost = max(0.0, round((self.intake_pressure - 1.0) * (0.8 + self.throttle / 250.0), 3))
             self.boost += self.random.uniform(-0.02, 0.02)
             self.boost = round(clamp(self.boost, 0.0, 2.0), 3)
-            
+
             self.maf_rate = 15.0 + (self.throttle / 100.0) * (self.rpm / 9000.0) * 230.0
             self.maf_rate += self.random.uniform(-5.0, 5.0)
             self.maf_rate = round(clamp(self.maf_rate, 5.0, 300.0), 1)
-            
+
             self.last_update["IntakePressure"] = t
             self.last_update["BoostPressure"] = t
             self.last_update["MAFRate"] = t
@@ -118,7 +120,7 @@ class EngineECU(BaseECU):
             self.o2 += (target_o2 - self.o2) * 0.12 + self.random.uniform(-0.04, 0.04)
             self.o2 = round(clamp(self.o2, 0.5, 1.5), 3)
             self.last_update["O2"] = t
-            
+
             if self.o2 > 1.15:
                 if self.random.random() < 0.05:
                     self.add_dtc("P0171")
@@ -126,11 +128,13 @@ class EngineECU(BaseECU):
         # SLOW updates
         if t - self.last_update["Temperature"] >= 1.0:
             load_factor = (self.load / 100.0)
-            temp_change = (load_factor * 8.0) - ((self.temp - 75.0) * 0.03)
+            heat_input = load_factor * 2.0
+            cooling = (self.temp - 85.0) * 0.08
+            temp_change = heat_input - cooling
             self.temp += temp_change + self.random.uniform(-0.3, 0.3)
             self.temp = round(clamp(self.temp, 60.0, 135.0), 1)
             self.last_update["Temperature"] = t
-            
+
             if self.temp > 115.0:
                 self.add_dtc("B1342")
 
@@ -170,8 +174,14 @@ class EngineECU(BaseECU):
             }
             self.data = data
 
-        self.update_queue.put(("update", self.name, (data.copy(), [])))
-        
+        # Build fault list from DTC codes using parameter map
+        active_param_faults = []
+        for dtc in self.dtc_codes:
+            if dtc in self.DTC_PARAMETER_MAP:
+                active_param_faults.extend(self.DTC_PARAMETER_MAP[dtc])
+
+        self.update_queue.put(("update", self.name, (data.copy(), active_param_faults)))
+
         self.send_message("FuelECU", {"ThrottlePosition": round(self.throttle, 1), "RPM": int(self.rpm)})
         self.send_message("TransmissionECU", {"RPM": int(self.rpm), "ThrottlePosition": round(self.throttle, 1), "Load": round(self.load, 1)})
         self.send_message("BrakeECU", {"RPM": int(self.rpm)})

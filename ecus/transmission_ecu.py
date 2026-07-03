@@ -1,10 +1,3 @@
-###############################################################################
-#                                                                              #
-#                      📁 transmission_ecu.py                                  #
-#                    Transmission Control Unit Module                          #
-#                                                                              #
-################################################################################
-
 import random
 from ecu_base import BaseECU, FAST, MEDIUM, SLOW, now_s, clamp
 
@@ -114,7 +107,7 @@ class TransmissionECU(BaseECU):
         with self.lock:
             self.data = data
 
-        self.update_queue.put(("update", self.name, (data.copy(), [])))
+        self.update_queue.put(("update", self.name, (data.copy(), self.dtc_codes.copy())))
         
         # Send current gear to EngineECU
         self.send_message("EngineECU", {"CurrentGear": int(self.current_gear)})
